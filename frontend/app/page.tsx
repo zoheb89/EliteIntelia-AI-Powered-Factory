@@ -1,1 +1,3 @@
-import { FactoryHome } from '../components/FactoryHome'; export default function Page(){return <FactoryHome/>}
+import EnterpriseFactoryCockpit from '../components/EnterpriseFactoryCockpit';
+
+export default function Page(){return <EnterpriseFactoryCockpit/>}
