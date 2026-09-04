@@ -1,2 +1,5 @@
-import {LifecycleBoard} from '../../components/factory/LifecycleBoard';
-export default function Page() { return <LifecycleBoard />; }
+import {ProductPortfolio} from '../../components/ProductPortfolio';
+
+export default function Page() {
+  return <ProductPortfolio />;
+}
