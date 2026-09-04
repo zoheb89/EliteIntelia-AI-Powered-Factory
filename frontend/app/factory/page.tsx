@@ -1,5 +1,3 @@
-import {ProductPortfolio} from '../../components/ProductPortfolio';
+import EnterpriseFactoryCockpit from '../../components/EnterpriseFactoryCockpit';
 
-export default function Page() {
-  return <ProductPortfolio />;
-}
+export default function Page(){return <EnterpriseFactoryCockpit/>}
