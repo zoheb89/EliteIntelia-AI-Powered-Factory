@@ -1,9 +1,4 @@
-"""Agent base class (spec §36, §67, §68).
-
-An agent turns evidence into a structured, provenance-tagged proposal. It never
-writes to the database directly — it returns an `AgentOutput`, and the
-orchestrator persists it inside the approval and audit path.
-"""
+"""Agent base class for the governed EliteInteliA lifecycle."""
 from __future__ import annotations
 
 import json
@@ -19,7 +14,6 @@ from llm.gateway.gateway import LLMGateway
 
 @dataclass
 class AgentOutput:
-    """What an agent proposes. The orchestrator decides what to persist."""
     agent: str
     stage: str
     summary: str = ""
@@ -58,8 +52,8 @@ class BaseAgent(ABC):
         "You analyse only the evidence supplied to you. You never invent customer facts, "
         "data volumes, SLAs, compliance certifications, pricing or platform constraints. "
         "When information is not available you return it as UNKNOWN with a specific question. "
-        "Every item you return must carry a provenance of FACT, AI_INFERENCE, ASSUMPTION, "
-        "RECOMMENDATION or UNKNOWN. Use FACT only when you can cite a supplied document. Return JSON only."
+        "Every item must carry provenance FACT, AI_INFERENCE, ASSUMPTION, RECOMMENDATION or UNKNOWN. "
+        "Use FACT only when you can cite a supplied document. Return JSON only."
     )
 
     def __init__(self, gateway: LLMGateway, tools: ToolRegistry):
@@ -68,18 +62,33 @@ class BaseAgent(ABC):
 
     @abstractmethod
     def gather(self) -> Dict[str, Any]: ...
-
     @abstractmethod
     def system_prompt(self) -> str: ...
-
     @abstractmethod
     def user_prompt(self, context: Dict[str, Any]) -> str: ...
-
     @abstractmethod
     def parse(self, data: Any, context: Dict[str, Any]) -> AgentOutput: ...
-
     @abstractmethod
     def deterministic(self, context: Dict[str, Any], reason: str) -> AgentOutput: ...
+
+    @staticmethod
+    def _attach_business_analysis(out: AgentOutput, context: Dict[str, Any]) -> AgentOutput:
+        """Project requirements into BRD/FRD/SRD for both AI and fallback runs."""
+        if out.stage != "requirements":
+            return out
+        try:
+            from core.ba_factory import build as build_ba
+            ba = build_ba(context.get("project") or {}, context.get("discovery") or {},
+                          out.artifacts.get("requirements") or {}, context.get("assessment"))
+            out.artifacts["brd"] = ba["brd"]
+            out.artifacts["frd"] = ba["frd"]
+            out.artifacts["srd"] = ba["srd"]
+            out.artifacts["ba_traceability"] = ba["traceability"]
+            out.artifacts["business_analysis"] = ba
+            out.warnings.append("BRD, FRD and SRD projected from the canonical requirements model.")
+        except Exception as exc:
+            out.warnings.append(f"Business Analysis projection failed: {exc}")
+        return out
 
     def run(self, max_tokens: int = 4000, timeout: int = 90) -> AgentOutput:
         context = self.gather()
@@ -94,7 +103,7 @@ class BaseAgent(ABC):
             out = self.deterministic(context, f"{type(exc).__name__}: {exc}")
             out.tool_calls = list(self.tools.calls)
             out.warnings.append("AI enrichment unavailable; produced a deterministic evidence-only result.")
-            return out
+            return self._attach_business_analysis(out, context)
 
         out = self.parse(data, context)
         out.tool_calls = list(self.tools.calls)
@@ -104,45 +113,18 @@ class BaseAgent(ABC):
             out.prompt_tokens = result.response.usage.prompt_tokens
             out.completion_tokens = result.response.usage.completion_tokens
             out.duration_ms = result.response.latency_ms
-
-        # Business Analysis is a first-class delivery output. Requirements remain
-        # the canonical source; this factory simply projects them into the three
-        # consulting artifacts and their traceability chain. It is deterministic,
-        # so provider failures cannot erase BRD/FRD/SRD delivery.
-        if self.stage == "requirements":
-            try:
-                from core.ba_factory import build as build_ba
-                project = context.get("project") or {}
-                discovery = context.get("discovery") or {}
-                requirements = out.artifacts.get("requirements") or {}
-                ba = build_ba(project, discovery, requirements,
-                              context.get("assessment") or None)
-                out.artifacts["brd"] = ba["brd"]
-                out.artifacts["frd"] = ba["frd"]
-                out.artifacts["srd"] = ba["srd"]
-                out.artifacts["ba_traceability"] = ba["traceability"]
-                out.artifacts["business_analysis"] = ba
-                out.warnings.append("BRD, FRD and SRD projected from the canonical requirements model.")
-            except Exception as exc:
-                out.warnings.append(f"Business Analysis projection failed: {exc}")
-        return out
+        return self._attach_business_analysis(out, context)
 
     def statement(self, text: str, provenance: str = "AI_INFERENCE", kind: str = "",
                   confidence: str = "MEDIUM", evidence: Optional[List[dict]] = None) -> Statement:
-        try:
-            prov = Provenance(str(provenance).upper())
-        except ValueError:
-            prov = Provenance.ASSUMPTION
-        try:
-            conf = Confidence(str(confidence).upper())
-        except ValueError:
-            conf = Confidence.MEDIUM
+        try: prov = Provenance(str(provenance).upper())
+        except ValueError: prov = Provenance.ASSUMPTION
+        try: conf = Confidence(str(confidence).upper())
+        except ValueError: conf = Confidence.MEDIUM
         refs = []
         for e in evidence or []:
             if isinstance(e, dict) and e.get("evidence_id"):
-                refs.append(EvidenceRef(evidence_id=str(e["evidence_id"]),
-                                        locator=str(e.get("locator", "")),
-                                        excerpt=str(e.get("excerpt", ""))))
+                refs.append(EvidenceRef(evidence_id=str(e["evidence_id"]), locator=str(e.get("locator", "")), excerpt=str(e.get("excerpt", ""))))
         s = Statement(text=text, provenance=prov, confidence=conf, evidence=refs, created_by=self.id)
         s.kind = kind or "note"
         return s
@@ -156,8 +138,7 @@ class BaseAgent(ABC):
 
     @classmethod
     def summary_text(cls, value: Any, limit: int = 2000) -> str:
-        if isinstance(value, list):
-            return " ".join(p for p in (cls.text_of(v) for v in value) if p).strip()[:limit]
+        if isinstance(value, list): return " ".join(p for p in (cls.text_of(v) for v in value) if p).strip()[:limit]
         return cls.text_of(value or "")[:limit]
 
     @staticmethod
