@@ -1,5 +1,6 @@
 import type {Metadata} from 'next';
 import './globals.css';
+import './enterprise-factory.css';
 import {AppShell} from '../components/AppShell';
 import {EngagementProvider} from '../lib/engagement-context';
 import {AuthProvider} from '../lib/auth-context';
@@ -20,17 +21,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({children}: {children: React.ReactNode}) {
-  return (
-    <html lang="en">
-      <body>
-        <AuthProvider>
-          <SignInGate>
-            <EngagementProvider>
-              <AppShell>{children}</AppShell>
-            </EngagementProvider>
-          </SignInGate>
-        </AuthProvider>
-      </body>
-    </html>
-  );
+  return <html lang="en"><body><AuthProvider><SignInGate><EngagementProvider><AppShell>{children}</AppShell></EngagementProvider></SignInGate></AuthProvider></body></html>;
 }
