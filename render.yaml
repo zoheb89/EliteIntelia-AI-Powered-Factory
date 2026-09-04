@@ -1,5 +1,4 @@
 services:
-  # --------------------------------------------------------------- API
   - type: web
     name: eliteintelia-intelligence-factory-api
     runtime: python
@@ -52,14 +51,11 @@ services:
       mountPath: /var/data
       sizeGB: 1
 
-  # ------------------------------------------------------------ FRONTEND
-  # Render deploys this service from the same GitHub repository. Every push
-  # to main can therefore rebuild the React/Next.js cockpit automatically.
   - type: web
     name: eliteintelia-intelligence-factory
     runtime: node
     rootDir: frontend
-    buildCommand: npm ci && npm run build
+    buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
       - key: NEXT_PUBLIC_API_BASE_URL
