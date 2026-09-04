@@ -31,6 +31,24 @@ services:
         sync: false
       - key: ELITEINTELIA_INCLUDE_WORKSPACE_ID
         value: "false"
+      - key: ELITEINTELIA_IMAGE_API_KEY
+        sync: false
+      - key: ELITEINTELIA_IMAGE_BASE_URL
+        value: https://assets.generative.engine.capgemini.com/v1/generate
+      - key: ELITEINTELIA_IMAGE_MODEL
+        value: gemini-2.5-flash-image
+      - key: ELITEINTELIA_IMAGE_PROVIDER
+        value: vertexai
+      - key: AI_PROVIDER
+        value: capgemini
+      - key: LLM_TIMEOUT_SECONDS
+        value: "90"
+      - key: LLM_MAX_TOKENS
+        value: "1200"
+      - key: LLM_TEMPERATURE
+        value: "0.0"
+      - key: LLM_DEFAULT_PROVIDER
+        value: azure
       - key: CINVENT_ALLOW_MUTATIONS
         value: "false"
       - key: CINVENT_DB_PATH
@@ -41,6 +59,8 @@ services:
         generateValue: true
       - key: AUTH_TOKEN_TTL
         value: "43200"
+      - key: PYTHON_VERSION
+        value: "3.11.9"
 
   - type: web
     name: eliteintelia-ai-powered-factory
