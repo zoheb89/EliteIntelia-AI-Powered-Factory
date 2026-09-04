@@ -1,4 +1,5 @@
 services:
+  # --------------------------------------------------------------- API
   - type: web
     name: eliteintelia-intelligence-factory-api
     runtime: python
@@ -7,26 +8,19 @@ services:
     startCommand: uvicorn api_server:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: CORS_ORIGINS
-        sync: false
+        value: https://eliteintelia-intelligence-factory.onrender.com
       - key: FRONTEND_ALLOWED_ORIGINS
-        sync: false
+        value: https://eliteintelia-intelligence-factory.onrender.com
       - key: DATABRICKS_HOST
         sync: false
       - key: DATABRICKS_TOKEN
         sync: false
       - key: DATABRICKS_WAREHOUSE_ID
         sync: false
-      # --- Multi-provider failover (optional) ---------------------------
-      # Declaring more than one provider means a quota exhaustion on the
-      # primary no longer degrades every stage.
-      #   LLM_PROVIDERS=primary:openai_compatible,backup:anthropic
       - key: LLM_PROVIDERS
         sync: false
       - key: LLM_DEFAULT_PROVIDER
         sync: false
-      # --- AI provider (vendor-neutral) --------------------------------
-      # Legacy CAPGEMINI_* names are still read, so an existing deployment
-      # keeps working until these are renamed.
       - key: ELITEINTELIA_LLM_BASE_URL
         sync: false
       - key: ELITEINTELIA_LLM_MODEL
@@ -40,15 +34,9 @@ services:
       - key: ELITEINTELIA_INCLUDE_WORKSPACE_ID
         sync: false
       - key: CINVENT_ALLOW_MUTATIONS
-        sync: false
+        value: "false"
       - key: CINVENT_DB_PATH
         value: /var/data/cinvent.db
-      # --- Authentication -------------------------------------------------
-      # AUTH_REQUIRED=true turns on the sign-in gate and RBAC.
-      # AUTH_SECRET signs session tokens - generate with `openssl rand -hex 32`.
-      # Without AUTH_SECRET the service refuses to issue tokens (fails closed).
-      # ADMIN_EMAIL/ADMIN_PASSWORD seed the first admin on an empty database;
-      # remove them after the first successful sign-in.
       - key: AUTH_REQUIRED
         value: "true"
       - key: AUTH_SECRET
@@ -59,14 +47,20 @@ services:
         sync: false
       - key: AUTH_TOKEN_TTL
         value: "43200"
-      # Optional: enables the Databricks execution engine in the Studio.
-      - key: DATABRICKS_WAREHOUSE_ID
-        sync: false
-    # A persistent disk is REQUIRED. Without it /var/data is ephemeral and every
-    # engagement, artifact and execution is lost on each deploy or restart.
-    # Note: disks need a paid instance type. On the free tier remove this block
-    # and set CINVENT_DB_PATH=data/cinvent.db (data will not survive restarts).
     disk:
       name: cinvent-data
       mountPath: /var/data
       sizeGB: 1
+
+  # ------------------------------------------------------------ FRONTEND
+  # Render deploys this service from the same GitHub repository. Every push
+  # to main can therefore rebuild the React/Next.js cockpit automatically.
+  - type: web
+    name: eliteintelia-intelligence-factory
+    runtime: node
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NEXT_PUBLIC_API_BASE_URL
+        value: https://eliteintelia-intelligence-factory-api.onrender.com
