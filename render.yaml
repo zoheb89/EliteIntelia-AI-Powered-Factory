@@ -1,6 +1,7 @@
 services:
   - type: web
     name: eliteintelia-intelligence-factory-api
+    plan: free
     runtime: python
     rootDir: backend
     buildCommand: pip install -r requirements.txt
@@ -47,6 +48,7 @@ services:
 
   - type: web
     name: eliteintelia-intelligence-factory
+    plan: free
     runtime: node
     rootDir: frontend
     buildCommand: npm install && npm run build
