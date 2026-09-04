@@ -15,10 +15,6 @@ services:
         sync: false
       - key: DATABRICKS_WAREHOUSE_ID
         sync: false
-      - key: LLM_PROVIDERS
-        sync: false
-      - key: LLM_DEFAULT_PROVIDER
-        sync: false
       - key: ELITEINTELIA_LLM_BASE_URL
         sync: false
       - key: ELITEINTELIA_LLM_MODEL
@@ -27,22 +23,22 @@ services:
         sync: false
       - key: ELITEINTELIA_LLM_PROVIDER
         sync: false
+      - key: ELITEINTELIA_LLM_AUTH_HEADER
+        value: x-api-key
+      - key: ELITEINTELIA_LLM_AUTH_SCHEME
+        value: none
       - key: ELITEINTELIA_WORKSPACE_ID
         sync: false
       - key: ELITEINTELIA_INCLUDE_WORKSPACE_ID
-        sync: false
+        value: "false"
       - key: CINVENT_ALLOW_MUTATIONS
         value: "false"
       - key: CINVENT_DB_PATH
         value: /tmp/cinvent.db
       - key: AUTH_REQUIRED
-        value: "true"
+        value: "false"
       - key: AUTH_SECRET
         generateValue: true
-      - key: ADMIN_EMAIL
-        sync: false
-      - key: ADMIN_PASSWORD
-        sync: false
       - key: AUTH_TOKEN_TTL
         value: "43200"
 
