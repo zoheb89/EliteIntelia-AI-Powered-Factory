@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img"
+     aria-label="EliteInteliA">
+  <title>EliteInteliA</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/><stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="chrome2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f4f7fb"/><stop offset="50%" stop-color="#aab6c6"/>
+      <stop offset="100%" stop-color="#e8edf3"/>
+    </linearGradient>
+    <linearGradient id="azure2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#38bdf8"/><stop offset="60%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <linearGradient id="violet2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <g transform="translate(74 128) scale(1.85)">
+    <path d="M14 74 C34 26, 92 6, 150 12 C112 22, 70 40, 46 78 Z" fill="url(#chrome2)"/>
+    <path d="M18 122 C44 76, 96 54, 150 56 C104 72, 62 94, 44 128 Z" fill="url(#azure2)"/>
+    <path d="M52 92 C74 66, 108 54, 140 56 L128 80 C104 80, 82 88, 68 102 Z" fill="url(#violet2)"/>
+    <path d="M62 40 h58 l-9 22 h-58 Z" fill="url(#azure2)"/>
+    <path d="M56 74 h44 l-9 21 h-44 Z" fill="url(#chrome2)"/>
+  </g>
+</svg>

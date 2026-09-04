@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: eliteintelia-intelligence-factory-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api_server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: CORS_ORIGINS
+        sync: false
+      - key: FRONTEND_ALLOWED_ORIGINS
+        sync: false
+      - key: DATABRICKS_HOST
+        sync: false
+      - key: DATABRICKS_TOKEN
+        sync: false
+      - key: DATABRICKS_WAREHOUSE_ID
+        sync: false
+      - key: CAPGEMINI_LLM_BASE_URL
+        sync: false
+      - key: CAPGEMINI_LLM_MODEL
+        sync: false
+      - key: CAPGEMINI_LLM_API_KEY
+        sync: false
+      - key: CAPGEMINI_LLM_PROVIDER
+        sync: false
+      - key: CAPGEMINI_WORKSPACE_ID
+        sync: false
+      - key: CAPGEMINI_INCLUDE_WORKSPACE_ID
+        sync: false
+      - key: CINVENT_ALLOW_MUTATIONS
+        sync: false

@@ -1,0 +1,112 @@
+app:
+  name: EliteInteliA
+  version: 0.1.29-true-unified-product-ui
+  environment: poc
+llm:
+  base_url: https://api.generative.engine.capgemini.com/v2/llm/invoke
+  model_name: openai.gpt-5.1
+  provider: azure
+  model_interface: langchain
+  mode: chain
+  auth_header: x-api-key
+  auth_scheme: none
+  temperature: 0.0
+  max_tokens: 1200
+  timeout_seconds: 75
+image:
+  base_url: https://assets.generative.engine.capgemini.com/v1/generate
+  model_name: gemini-2.5-flash-image
+  provider: vertexai
+databricks:
+  allow_mutations: false
+  default_catalog: main
+  default_schema: cinvent
+governance:
+  require_approval_before_mutation: true
+  audit_all_actions: true
+lifecycle:
+  actions:
+    - id: intake.create
+      title: Create Intake Pack
+      description: Capture customer identity, intent and initial evidence.
+      workspace: Intake & Documents
+      output: intake_pack
+      approval: none
+      when: ["not:intake"]
+    - id: discovery.run
+      title: Run Discovery
+      description: Convert customer intent and available evidence into structured discovery facts.
+      workspace: AI Discovery
+      output: discovery
+      approval: none
+      when: ["intake", "not:discovery"]
+    - id: environment.assess
+      title: Run Environment Assessment
+      description: Detect applicable platform capabilities from discovered target and supplied environment evidence.
+      workspace: Environment Assessment
+      output: environment_assessment
+      approval: none
+      when: ["discovery", "not:environment"]
+    - id: assessment.run
+      title: Run Current-State Assessment
+      description: Evaluate business, data, platform and governance readiness using persisted evidence.
+      workspace: Assessment
+      output: assessment
+      approval: none
+      when: ["environment", "not:assessment"]
+    - id: architecture.generate
+      title: Generate Architecture
+      description: Generate target architecture and platform-fit alternatives from the current evidence chain.
+      workspace: Solution Blueprint
+      output: blueprint
+      approval: human approval before downstream generation
+      when: ["assessment", "not:architecture"]
+    - id: architecture.approve
+      title: Approve Architecture
+      description: Record the human decision that releases downstream metadata and engineering generation.
+      workspace: Solution Blueprint
+      output: approval
+      approval: required
+      when: ["architecture", "not:architecture_approved"]
+    - id: platform.configure
+      title: Configure Target Platform
+      description: Collect the customer platform, deployment path and environment references.
+      workspace: Platform Workspace
+      output: platform_config
+      approval: required before mutations
+      when: ["architecture_approved", "not:platform"]
+    - id: metadata.generate
+      title: Generate Metadata
+      description: Generate canonical metadata from the approved architecture and project evidence.
+      workspace: Metadata
+      output: metadata
+      approval: architecture approval
+      when: ["architecture_approved", "platform", "not:metadata"]
+    - id: engineering.generate
+      title: Generate Engineering
+      description: Generate implementation assets from the approved metadata model.
+      workspace: Engineering Factory
+      output: engineering
+      approval: architecture approval
+      when: ["metadata", "not:engineering"]
+    - id: validation.run
+      title: Run Validation
+      description: Validate engineering outputs and traceability against current delivery artifacts.
+      workspace: QA & Traceability
+      output: qa
+      approval: none
+      when: ["engineering", "not:validate"]
+    - id: deployment.approve
+      title: Approve Deployment
+      description: Record the human release decision for the validated delivery.
+      workspace: Platform Factory
+      output: deployment approval
+      approval: required
+      when: ["validate", "not:deploy"]
+    - id: operations.start
+      title: Start Operations
+      description: Move the validated and approved solution into the operational state.
+      workspace: Platform Factory
+      output: operating state
+      approval: deployment approval
+      when: ["deploy", "not:operate"]

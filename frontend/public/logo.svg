@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 200" role="img"
+     aria-label="EliteInteliA Technologies">
+  <title>EliteInteliA Technologies</title>
+  <defs>
+    <linearGradient id="chrome" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f4f7fb"/><stop offset="38%" stop-color="#b9c4d2"/>
+      <stop offset="62%" stop-color="#8e9bad"/><stop offset="100%" stop-color="#e8edf3"/>
+    </linearGradient>
+    <linearGradient id="azure" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#38bdf8"/><stop offset="55%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+    <linearGradient id="violet" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#6366f1"/><stop offset="50%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+    <linearGradient id="silverText" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#cbd5e1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Swoosh mark: three sweeping ribbons around a stylised E. -->
+  <g transform="translate(6 18)">
+    <path d="M14 74 C34 26, 92 6, 150 12 C112 22, 70 40, 46 78 Z" fill="url(#chrome)"/>
+    <path d="M8 108 C24 60, 78 30, 142 34 C96 50, 52 74, 34 112 Z" fill="url(#chrome)" opacity=".85"/>
+    <path d="M18 128 C44 82, 96 60, 150 62 C104 78, 62 100, 44 134 Z" fill="url(#azure)"/>
+    <path d="M52 96 C74 70, 108 58, 140 60 L128 84 C104 84, 82 92, 68 106 Z" fill="url(#violet)"/>
+    <path d="M62 44 h58 l-9 22 h-58 Z" fill="url(#azure)"/>
+    <path d="M56 78 h44 l-9 21 h-44 Z" fill="url(#chrome)"/>
+    <path d="M150 20 l7 17 17 7 -17 7 -7 17 -7 -17 -17 -7 17 -7 Z" fill="#ffffff" opacity=".92"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="212" y="96" font-family="Inter, Segoe UI, Helvetica Neue, Arial, sans-serif"
+        font-size="76" font-weight="700" letter-spacing="-1">
+    <tspan fill="url(#silverText)">Elite</tspan><tspan fill="url(#violet)">InteliA</tspan>
+  </text>
+
+  <!-- TECHNOLOGIES, rules either side -->
+  <g transform="translate(214 128)">
+    <line x1="0" y1="14" x2="86" y2="14" stroke="#94a3b8" stroke-width="1.6"/>
+    <text x="100" y="20" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="21"
+          font-weight="500" letter-spacing="9.5" fill="#cbd5e1">TECHNOLOGIES</text>
+    <line x1="432" y1="14" x2="518" y2="14" stroke="#94a3b8" stroke-width="1.6"/>
+  </g>
+</svg>
