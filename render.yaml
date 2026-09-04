@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: eliteintelia-intelligence-factory-api
+    name: eliteintelia-ai-powered-factory-api
     plan: free
     runtime: python
     rootDir: backend
@@ -8,7 +8,7 @@ services:
     startCommand: uvicorn api_server:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: FRONTEND_ALLOWED_ORIGINS
-        value: https://eliteintelia-intelligence-factory.onrender.com
+        value: https://eliteintelia-ai-powered-factory.onrender.com
       - key: DATABRICKS_HOST
         sync: false
       - key: DATABRICKS_TOKEN
@@ -43,7 +43,7 @@ services:
         value: "43200"
 
   - type: web
-    name: eliteintelia-intelligence-factory
+    name: eliteintelia-ai-powered-factory
     plan: free
     runtime: node
     rootDir: frontend
@@ -51,4 +51,4 @@ services:
     startCommand: npm start
     envVars:
       - key: NEXT_PUBLIC_API_BASE_URL
-        value: https://eliteintelia-intelligence-factory-api.onrender.com
+        value: https://eliteintelia-ai-powered-factory-api.onrender.com
