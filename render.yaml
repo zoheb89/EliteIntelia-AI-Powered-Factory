@@ -6,8 +6,6 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn api_server:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: CORS_ORIGINS
-        value: https://eliteintelia-intelligence-factory.onrender.com
       - key: FRONTEND_ALLOWED_ORIGINS
         value: https://eliteintelia-intelligence-factory.onrender.com
       - key: DATABRICKS_HOST
@@ -35,7 +33,7 @@ services:
       - key: CINVENT_ALLOW_MUTATIONS
         value: "false"
       - key: CINVENT_DB_PATH
-        value: /var/data/cinvent.db
+        value: /tmp/cinvent.db
       - key: AUTH_REQUIRED
         value: "true"
       - key: AUTH_SECRET
@@ -46,10 +44,6 @@ services:
         sync: false
       - key: AUTH_TOKEN_TTL
         value: "43200"
-    disk:
-      name: cinvent-data
-      mountPath: /var/data
-      sizeGB: 1
 
   - type: web
     name: eliteintelia-intelligence-factory
