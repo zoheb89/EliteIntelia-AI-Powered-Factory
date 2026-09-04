@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Type
 
 from agents_v2.base import AgentOutput, BaseAgent
+from agents_v2.evidence import EvidenceAgent
 from agents_v2.architecture import ArchitectureAgent, PlatformSelectionAgent
 from agents_v2.design import (
     AIDesignAgent, ApplicationDesignAgent, BIDesignAgent, DataDesignAgent,
@@ -33,6 +34,7 @@ from llm.gateway.gateway import LLMGateway
 #: Agent registry. Adding an agent is a one-line change here.
 AGENTS: Dict[str, Type[BaseAgent]] = {
     a.id: a for a in (
+        EvidenceAgent,
         DiscoveryAgent, QuestionSetAgent, AssessmentAgent, RequirementsAgent,
         PlatformSelectionAgent, ArchitectureAgent,
         DataDesignAgent, AIDesignAgent, BIDesignAgent, ApplicationDesignAgent,
