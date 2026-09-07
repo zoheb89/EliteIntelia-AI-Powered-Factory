@@ -1,1 +1,5 @@
-import { WorkspacePage } from '../../components/WorkspacePage'; export default function Page(){return <WorkspacePage route="/discovery"/>}
+import {redirect} from 'next/navigation';
+
+export default function Page(){
+  redirect('/factory');
+}
