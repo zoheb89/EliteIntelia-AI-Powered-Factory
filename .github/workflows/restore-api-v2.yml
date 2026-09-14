@@ -6,13 +6,14 @@ permissions:
   contents: write
 jobs:
   restore:
-    if: github.event.head_commit.message == 'Arm one-time API v2 recovery'
+    if: github.event.head_commit.message == 'Restore complete API v2'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Revert bad API commit
+      - name: Restore API v2 from known-good parent
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git revert --no-edit 9e20f1a5125ba698762f355bbf9c7af0897e0702
+          git revert --no-edit 2f608214bb57eaa604327bea23c82eb942b56be3
           git push
