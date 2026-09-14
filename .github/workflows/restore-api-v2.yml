@@ -16,7 +16,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout 94c55fb22c98ae0814393e90b42d39ffa8af5cb9 -- backend/core/api_v2.py
+          git checkout 4cf75cda4445e51e5a8e9c5479be7c9069570e4d -- backend/core/api_v2.py
           git add backend/core/api_v2.py
           git commit -m "Restore API v2 from known-good version"
           git push
