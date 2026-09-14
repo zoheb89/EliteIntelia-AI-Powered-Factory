@@ -54,6 +54,7 @@ export function EnterpriseFactoryCockpit(){
   const [stageDefs,setStageDefs]=useState<{id:string;label:string}[]>([]);
   const [loading,setLoading]=useState(false);
   const [message,setMessage]=useState('');
+  const [messageKind,setMessageKind]=useState<'info'|'success'|'error'>('info');
   const [tab,setTab]=useState<'command'|'products'|'evidence'|'runs'>('command');
   const [showCreate,setShowCreate]=useState(false);
   const [customer,setCustomer]=useState('');
@@ -66,13 +67,13 @@ export function EnterpriseFactoryCockpit(){
 
   async function refresh(p=project){
     if(!p) return;
-    setLoading(true); setMessage('');
+    setLoading(true); setMessage(''); setMessageKind('info');
     try{
       const [l,n,s,a,u,r] = await Promise.all([
         getProjectLifecycle(p.id), getNextAction(p.id), listStatements(p.id), listFactoryArtifacts(p.id), listUnknowns(p.id), getProjectAccelerators(p.id)
       ]);
       setLife(l); setNext(n); setStatements(s.items); setArtifacts(a.items); setUnknowns(u.items); setRecommended(r.recommended || []);
-    }catch(e:any){setMessage(e?.message || 'Unable to load factory state.');}
+    }catch(e:any){setMessageKind('error');setMessage(e?.message || 'Unable to load factory state.');}
     finally{setLoading(false)}
   }
 
@@ -83,7 +84,7 @@ export function EnterpriseFactoryCockpit(){
       const saved = typeof window !== 'undefined' ? localStorage.getItem('eliteintelia_factory_project') : null;
       const found = (p.items || []).find(x=>x.id===saved) || (p.items || [])[0] || null;
       setProject(found);
-    }).catch(e=>setMessage(e?.message || 'Factory API is not reachable.'));
+    }).catch(e=>{setMessageKind('error');setMessage(e?.message || 'Factory API is not reachable.');});
   },[]);
   useEffect(()=>{if(project) refresh(project)},[project?.id]);
 
@@ -94,22 +95,27 @@ export function EnterpriseFactoryCockpit(){
       const created=await createFactoryProject({name:name.trim(),customer:customer.trim(),intent:intent.trim(),domain:'Enterprise Data & AI'});
       const p:FactoryProject={id:created.id,name:created.name,intent:intent.trim(),domain:'Enterprise Data & AI',version:created.version};
       setProjects(v=>[p,...v]); setProject(p); localStorage.setItem('eliteintelia_factory_project',p.id); setShowCreate(false); setName('');setCustomer('');setIntent('');
-    }catch(e:any){setMessage(e?.message || 'Could not create engagement.')}finally{setLoading(false)}
+    }catch(e:any){setMessageKind('error');setMessage(e?.message || 'Could not create engagement.')}finally{setLoading(false)}
   }
 
   async function run(stage:string){
     if(!project) return;
-    setLoading(true); setMessage(`Starting ${stageLabel(stage)}…`);
+    setLoading(true); setMessage(`Starting ${stageLabel(stage)}…`); setMessageKind('info');
     try{
-      await runFactoryStage(project.id,stage,true); setMessage(`${stageLabel(stage)} job submitted. Refreshing control plane…`); await refresh(project);
-    }catch(e:any){setMessage(e?.message || `Unable to run ${stageLabel(stage)}.`)}finally{setLoading(false)}
+      await runFactoryStage(project.id,stage,true);
+      setMessageKind('success');
+      setMessage(`${stageLabel(stage)} completed successfully. Control plane refreshed.`);
+      await refresh(project);
+      setMessageKind('success');
+      setMessage(`${stageLabel(stage)} completed successfully.`);
+    }catch(e:any){setMessageKind('error');setMessage(e?.message || `Unable to run ${stageLabel(stage)}.`)}finally{setLoading(false)}
   }
 
   async function approve(stage:string){
     if(!project) return;
     setLoading(true);
     try{await approveStage(project.id,stage,'Approved from Enterprise Factory Cockpit');await refresh(project);setMessage(`${stageLabel(stage)} approved.`)}
-    catch(e:any){setMessage(e?.message || 'Approval failed.')}finally{setLoading(false)}
+    catch(e:any){setMessageKind('error');setMessage(e?.message || 'Approval failed.')}finally{setLoading(false)}
   }
 
   const filteredProducts=useMemo(()=>PRODUCTS.filter(p=>{
@@ -118,7 +124,8 @@ export function EnterpriseFactoryCockpit(){
   const progress=life ? pct(life.progress.complete,life.progress.total) : 0;
   const pending=life?.pending_approval;
   const currentStage=life?.next_stage?.id || next?.primary?.stage || 'intent';
-  const engineMode=life?.generation?.any_degraded ? 'Evidence-only fallback active' : 'AI + deterministic engine ready';
+  const degradedCount=life?.generation?.degraded_stages?.length || 0;
+  const engineMode=degradedCount ? `${degradedCount} stage${degradedCount===1?'':'s'} using deterministic fallback` : 'AI + deterministic engine ready';
 
   return <div className="efc">
     <section className="efcHero">
@@ -142,14 +149,14 @@ export function EnterpriseFactoryCockpit(){
       <button className="efcIconBtn" onClick={()=>refresh()} title="Refresh"><RefreshCw size={16}/></button>
     </section>
 
-    {message && <div className="efcNotice"><CircleAlert size={16}/><span>{message}</span><button onClick={()=>setMessage('')}><X size={15}/></button></div>}
+    {message && <div className={`efcNotice ${messageKind}`}><CircleAlert size={16}/><span>{message}</span><button onClick={()=>setMessage('')}><X size={15}/></button></div>}
 
     {!project ? <section className="efcEmpty"><div><Rocket size={30}/><h2>Start the first governed engagement</h2><p>Create a customer engagement and the factory will derive the lifecycle, readiness gates, evidence lineage and next best action.</p><button className="efcPrimary" onClick={()=>setShowCreate(true)}><Plus size={17}/> Create engagement</button></div></section> : <>
       <section className="efcMetrics">
         <Metric icon={Target} label="Lifecycle progress" value={`${progress}%`} sub={`${life?.progress.complete || 0} of ${life?.progress.total || stages.length} stages`} progress={progress}/>
-        <Metric icon={FileCheck2} label="Evidence coverage" value={`${next?.evidence?.percent ?? 0}%`} sub={`${next?.evidence?.documents ?? 0} documents · ${next?.evidence?.evidenced ?? 0} evidenced`} progress={next?.evidence?.percent ?? 0}/>
+        <Metric icon={FileCheck2} label="Evidence coverage" value={`${next?.evidence?.percent ?? 0}%`} sub={`${next?.evidence?.documents ?? 0} documents · ${next?.evidence?.evidenced ?? 0} evidenced signals`} progress={next?.evidence?.percent ?? 0}/>
         <Metric icon={CircleAlert} label="Open questions" value={`${next?.evidence?.open_questions ?? unknowns.length}`} sub="Need customer / analyst decision" tone={(next?.evidence?.open_questions ?? unknowns.length)>0?'warn':'ok'}/>
-        <Metric icon={Bot} label="AI acceleration" value={life?.generation?.any_degraded?'Fallback':'Ready'} sub={life?.generation?.ai_stages?.length ? `${life.generation.ai_stages.length} AI stages enabled` : 'Provider status inherited from factory'} tone={life?.generation?.any_degraded?'warn':'ok'}/>
+        <Metric icon={Bot} label="AI acceleration" value={degradedCount?'Degraded':'Ready'} sub={degradedCount ? `${degradedCount} completed stage${degradedCount===1?'':'s'} used fallback` : (life?.generation?.ai_stages?.length ? `${life.generation.ai_stages.length} AI stages enabled` : 'Provider status inherited from factory')} tone={degradedCount?'warn':'ok'}/>
       </section>
 
       <div className="efcTabs"><button className={tab==='command'?'active':''} onClick={()=>setTab('command')}>Command Center</button><button className={tab==='products'?'active':''} onClick={()=>setTab('products')}>Product Factory</button><button className={tab==='evidence'?'active':''} onClick={()=>setTab('evidence')}>Evidence & Decisions</button><button className={tab==='runs'?'active':''} onClick={()=>setTab('runs')}>Execution Trace</button></div>
@@ -166,9 +173,9 @@ export function EnterpriseFactoryCockpit(){
 
       {tab==='products' && <section className="efcProductSection"><div className="efcSectionHead"><div><span>THE ELITEINTELIA DIFFERENTIATOR</span><h2>Eight products. One governed factory.</h2><p>Each product is independently useful, but all accelerators operate against the same engagement, evidence, decision and approval backbone.</p></div><div className="efcSearch"><Search size={15}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search products or accelerators"/></div></div><div className="productGrid">{filteredProducts.map(p=><ProductCard key={p.code} product={p}/>)}</div></section>}
 
-      {tab==='evidence' && <div className="efcGrid"><section className="efcPanel wide"><PanelTitle icon={FileCheck2} title="Evidence register" label={`${artifacts.length} ARTIFACTS`}/><div className="dataTable"><div className="tr th"><span>Artifact / decision</span><span>Type</span><span>Approval</span><span>Version</span></div>{artifacts.slice(0,10).map(a=><div className="tr" key={a.id}><span><b>{a.name}</b><small>{a.kind}</small></span><span>{a.fmt}</span><span><StatusPill value={a.approval_state}/></span><span>v{a.version}</span></div>)}{!artifacts.length&&<div className="tableEmpty">No persisted artifacts yet. Run the first factory stage to start the evidence chain.</div>}</div></section><section className="efcPanel"><PanelTitle icon={CircleAlert} title="Unknowns & questions" label={`${unknowns.length} OPEN`}/>{unknowns.length?<div className="unknownList">{unknowns.slice(0,8).map(u=><div key={u.id}><span>{u.stage}</span><p>{u.text}</p></div>)}</div>:<div className="efcEmptyMini"><CheckCircle2 size={19}/><span>No open questions detected.</span></div>}</section><section className="efcPanel"><PanelTitle icon={UsersRound} title="Statements" label={`${statements.length} RECORDED`}/><div className="statementList">{statements.slice(0,7).map(s=><div key={s.id}><div><b>{s.ref}</b><StatusPill value={s.provenance}/></div><p>{s.text}</p><small>{s.confidence} confidence · {s.evidence?.length || 0} citations</small></div>)}{!statements.length&&<div className="tableEmpty">Statements appear as discovery and requirements are executed.</div>}</div></section></div>}
+      {tab==='evidence' && <div className="efcGrid"><section className="efcPanel wide"><PanelTitle icon={FileCheck2} title="Evidence register" label={`${artifacts.length} ARTIFACTS`}/><div className="dataTable"><div className="tr th"><span>Artifact / decision</span><span>Type</span><span>Approval</span><span>Version</span></div>{artifacts.slice(0,10).map(a=><div className="tr" key={a.id}><span><b>{a.name}</b><small>{a.kind}</small></span><span>{a.fmt}</span><span><StatusPill value={a.approval_state}/></span><span>v{a.version}</span></div>)}{!artifacts.length&&<div className="tableEmpty">No persisted artifacts yet. Run the first factory stage to start the evidence chain.</div>}</div></section><section className="efcPanel"><PanelTitle icon={CircleAlert} title="Unknowns & questions" label={`${unknowns.length} OPEN · CUSTOMER DECISION`}/>{unknowns.length?<div className="unknownList">{unknowns.slice(0,8).map(u=><div key={u.id}><span>{u.stage}</span><p>{u.text}</p></div>)}</div>:<div className="efcEmptyMini"><CheckCircle2 size={19}/><span>No open questions detected.</span></div>}</section><section className="efcPanel"><PanelTitle icon={UsersRound} title="Statements" label={`${statements.length} RECORDED`}/><div className="statementList">{statements.slice(0,7).map(s=><div key={s.id}><div><b>{s.ref}</b><StatusPill value={s.provenance}/></div><p>{s.text}</p><small>{s.confidence} confidence · {s.evidence?.length || 0} citations</small></div>)}{!statements.length&&<div className="tableEmpty">Statements appear as discovery and requirements are executed.</div>}</div></section></div>}
 
-      {tab==='runs' && <section className="efcPanel wide"><PanelTitle icon={Activity} title="Execution trace" label="CONTROL PLANE"/><div className="traceHero"><div className="traceIcon"><Activity size={23}/></div><div><h2>Resumable, auditable execution</h2><p>Agents propose. The orchestrator checks gates, persists approved changes and records provenance. Failed provider calls degrade explicitly instead of pretending to be AI output.</p></div></div><div className="traceTimeline">{stages.map(({id,label},i)=>{const s=life?.stages?.[id];return <div className="traceRow" key={id}><div className={`traceDot ${s?.status==='complete'?'ok':''}`}>{s?.status==='complete'?<Check size={11}/>:i+1}</div><div><strong>{label}</strong><span>{s?.status || 'locked'}{s?.generation_mode?` · ${s.generation_mode}`:''}</span></div><small>{s?.blockers?.length?`${s.blockers.length} blocker(s)`:'Gate state evaluated'}</small></div>})}</div></section>}
+      {tab==='runs' && <section className="efcPanel wide"><PanelTitle icon={Activity} title="Execution trace" label="CONTROL PLANE"/><div className="traceHero"><div className="traceIcon"><Activity size={23}/></div><div><h2>Resumable, auditable execution</h2><p>Agents propose. The orchestrator checks gates, persists approved changes and records provenance. Failed provider calls degrade explicitly instead of pretending to be AI output.</p></div></div><div className="traceTimeline">{stages.map(({id,label},i)=>{const s=life?.stages?.[id];return <div className="traceRow" key={id}><div className={`traceDot ${s?.status==='complete'?'ok':''}`}>{s?.status==='complete'?<Check size={11}/>:i+1}</div><div><strong>{label}</strong><span>{s?.status || 'locked'}{s?.generation_mode?` · ${s?.generation_mode}`:''}</span></div><small>{s?.blockers?.length?`${s.blockers.length} blocker(s)`:'Gate state evaluated'}</small></div>})}</div></section>}
     </>}
 
     {showCreate && <div className="efcModalBackdrop" onMouseDown={()=>setShowCreate(false)}><div className="efcModal" onMouseDown={e=>e.stopPropagation()}><div className="modalHead"><div><span>NEW ENGAGEMENT</span><h2>Start a governed factory run</h2></div><button onClick={()=>setShowCreate(false)}><X/></button></div><label>Engagement name<input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Enterprise Data Modernization" autoFocus/></label><label>Customer / organization<input value={customer} onChange={e=>setCustomer(e.target.value)} placeholder="Customer name"/></label><label>Business intent<textarea value={intent} onChange={e=>setIntent(e.target.value)} placeholder="Describe the desired outcome, even if the brief is only a few sentences…"/></label><div className="modalHint"><Sparkles size={16}/><span>The factory will turn this into intent, evidence requirements, readiness gates and the next best action.</span></div><div className="modalActions"><button className="efcSecondary" onClick={()=>setShowCreate(false)}>Cancel</button><button className="efcPrimary" disabled={!name.trim()||loading} onClick={create}>{loading?'Creating…':'Create engagement'} <ArrowRight size={16}/></button></div></div></div>}
