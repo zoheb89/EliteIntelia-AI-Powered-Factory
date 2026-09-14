@@ -12,7 +12,6 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers || {});
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  if (init?.body) headers.set("Content-Type", "application/json");
 
   let r: Response;
   try {
@@ -129,9 +128,37 @@ export const createFactoryProject = (b: {name: string; intent?: string; domain?:
 
 export const getProjectLifecycle = (id: string) =>
   req<ProjectLifecycle>(`/projects/${encodeURIComponent(id)}/lifecycle`);
-export const runFactoryStage = (id: string, stage: string, background = true) =>
-  req<any>(`/projects/${encodeURIComponent(id)}/stages/${encodeURIComponent(stage)}`,
-           {method: "POST", body: JSON.stringify({background})});
+
+/**
+ * Submit a stage and, when the API queues it, wait for the real job outcome.
+ * The previous client refreshed immediately after receiving QUEUED, which made
+ * a running discovery look as if it had never started and hid job failures.
+ */
+export async function runFactoryStage(id: string, stage: string, background = true) {
+  const queued: any = await req<any>(
+    `/projects/${encodeURIComponent(id)}/stages/${encodeURIComponent(stage)}`,
+    {method: "POST", body: JSON.stringify({background})}
+  );
+
+  if (!background || queued?.status !== "QUEUED" || !queued?.job_id) return queued;
+
+  const deadline = Date.now() + 210_000;
+  let last: Job | null = null;
+  while (Date.now() < deadline) {
+    last = await getFactoryJob(queued.job_id);
+    if (["COMPLETED", "FAILED", "PARTIAL", "CANCELLED"].includes(last.status)) {
+      if (last.status !== "COMPLETED") {
+        const detail = last.error || last.message || `${stage} job ended with ${last.status}`;
+        throw new Error(`${stage} execution failed: ${detail}`);
+      }
+      return last;
+    }
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+
+  throw new Error(`${stage} is still running after 210 seconds. Job ${queued.job_id} remains resumable; refresh the factory to inspect it.`);
+}
+
 export const getFactoryJob = (jobId: string) => req<Job>(`/jobs/${encodeURIComponent(jobId)}`);
 
 export const listStatements = (id: string, kind?: string) =>
@@ -181,7 +208,6 @@ export async function uploadEvidence(projectId: string, file: File): Promise<Ing
   const headers = new Headers();
   const token = getToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
-  // Content-Type is deliberately unset so the browser adds the multipart boundary.
   const r = await fetch(`${API_BASE}/api/v2/projects/${encodeURIComponent(projectId)}/evidence`,
                         {method: 'POST', body: fd, headers, cache: 'no-store'});
   const raw = await r.text();
