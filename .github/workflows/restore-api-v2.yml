@@ -6,7 +6,7 @@ permissions:
   contents: write
 jobs:
   restore:
-    if: github.sha == '02b6dfff71c3c602c69b600bdb2d6611ffd2f146'
+    if: github.event.head_commit.message == 'Arm one-time API v2 recovery'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
