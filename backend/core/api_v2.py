@@ -241,7 +241,14 @@ def open_questions(project_id: str, repo: R.Repository = Depends(get_repo)):
         items = repo.list_statements(project_id)
     except KeyError:
         raise HTTPException(404, "Project not found")
-    unknowns = [s for s in items if s.provenance == Provenance.UNKNOWN.value]
+    unique = {}
+    for s in items:
+        if s.provenance != Provenance.UNKNOWN.value:
+            continue
+        key = " ".join((s.text or "").split()).casefold()
+        if key and key not in unique:
+            unique[key] = s
+    unknowns = list(unique.values())
     return {"items": [{"id": s.id, "text": s.text, "stage": s.stage} for s in unknowns],
             "count": len(unknowns)}
 
@@ -323,8 +330,9 @@ def scope_status(project_id: str, repo: R.Repository = Depends(get_repo)):
     except KeyError:
         raise HTTPException(404, "Project not found")
 
-    open_questions = sum(1 for s in repo.list_statements(project_id)
-                         if (s.provenance or "") == "UNKNOWN")
+    open_questions = len({" ".join((s.text or "").split()).casefold()
+                          for s in repo.list_statements(project_id)
+                          if (s.provenance or "") == "UNKNOWN" and (s.text or "").strip()})
     locked = _current_lock(repo, project_id)
     out = {"locked": bool(locked), "current": current,
            "readiness": readiness(current, open_questions)}
@@ -344,8 +352,9 @@ def scope_lock(project_id: str, body: ScopeLockIn,
     except KeyError:
         raise HTTPException(404, "Project not found")
 
-    open_questions = sum(1 for s in repo.list_statements(project_id)
-                         if (s.provenance or "") == "UNKNOWN")
+    open_questions = len({" ".join((s.text or "").split()).casefold()
+                          for s in repo.list_statements(project_id)
+                          if (s.provenance or "") == "UNKNOWN" and (s.text or "").strip()})
     ready = readiness(current, open_questions)
     # Locking over open blockers is allowed, but only deliberately and on the
     # record — a freeze nobody can see the caveats on is worse than none.
@@ -678,7 +687,22 @@ def run_stage(project_id: str, stage_id: str, body: RunStageIn = RunStageIn(),
     if not repo.get_project(project_id):
         raise HTTPException(404, "Project not found")
 
+    # Intent and evidence are captured-data lifecycle nodes, not agent stages.
+    # Never expose a misleading AGENT_NOT_IMPLEMENTED error for them.
+    if stage_id in DATA_SATISFIED:
+        st = _orchestrator.lifecycle_state(repo, project_id)
+        if not st.is_complete(stage_id):
+            raise HTTPException(409, detail={
+                "code": "DATA_STAGE_INCOMPLETE",
+                "message": f"Stage '{stage_id}' is satisfied by captured data; provide the required input first."})
+        return {"status": "COMPLETED", "stage": stage_id, "handler": "data",
+                "message": "Captured-data stage already satisfied; no agent execution required."}
+
     stage = STAGE_BY_ID[stage_id]
+    if stage.id in ENGINE_STAGES:
+        raise HTTPException(409, detail={
+            "code": "ENGINE_STAGE",
+            "message": f"Stage '{stage_id}' is executed by its deterministic engine endpoint."})
     if stage.agent not in AGENTS:
         raise HTTPException(501, detail={
             "code": "AGENT_NOT_IMPLEMENTED",

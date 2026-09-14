@@ -22,7 +22,15 @@ def engagement_state(state: LifecycleState, evidence_count: int) -> str:
         if state.is_complete(s.id): latest=s
     return f"{latest.group} IN PROGRESS" if latest else "INTAKE"
 def evidence_completeness(statements: List[Any]) -> Dict[str, Any]:
-    considered=[s for s in statements if getattr(s,"kind","") not in ("source",)]
+    # Re-running a stage must not inflate coverage or the customer decision queue.
+    unique = {}
+    for s in statements:
+        if getattr(s, "kind", "") in ("source",):
+            continue
+        key = (getattr(s, "kind", ""), " ".join((getattr(s, "text", "") or "").split()).casefold())
+        if key[1] and key not in unique:
+            unique[key] = s
+    considered = list(unique.values())
     if not considered:return {"percent":0,"evidenced":0,"open_questions":0,"total":0}
     evidenced=sum(1 for s in considered if (getattr(s,"provenance","") or "") in EVIDENCED)
     open_questions=sum(1 for s in considered if (getattr(s,"provenance","") or "") == "UNKNOWN")
