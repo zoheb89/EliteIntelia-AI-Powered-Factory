@@ -10,10 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Restore API v2 from known-good parent
+      - name: Restore API v2 from known-good commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git revert --no-edit 9e20f1a5125ba698762f355bbf9c7af0897e0702
-          git revert --no-edit 2f608214bb57eaa604327bea23c82eb942b56be3
+          git checkout 94c55fb22c98ae0814393e90b42d39ffa8af5cb9 -- backend/core/api_v2.py
+          git add backend/core/api_v2.py
+          git commit -m "Restore API v2 from known-good version"
           git push
