@@ -10,6 +10,12 @@ import {API_BASE, getToken, UnauthorizedError} from "./api";
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers || {});
+  // FastAPI/Pydantic endpoints expect JSON bodies to be explicitly typed.
+  // Without this header, browser fetch can send a JSON string as an opaque
+  // request body and FastAPI returns a generic validation failure.
+  if (typeof init?.body === "string" && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
