@@ -1,0 +1,63 @@
+name: Build AI execution inspector
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upgrade AI activity panel
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('frontend/components/EnterpriseFactoryCockpit.tsx')
+          s = p.read_text()
+
+          old = """{project && aiActivity && <section className=\"efcAiActivity\"><div className=\"efcAiActivityHead\"><div><span>LIVE AI ACTIVITY</span><h3>{stageLabel(aiActivity.stage)} · {aiActivity.status}</h3></div><span className=\"aiLiveBadge\"><i/> {aiActivity.progress ?? 0}%</span></div><div className=\"efcAiSteps\"><span className={aiActivity.step==='gate'?'active':'done'}>1. Gate & context</span><span className={aiActivity.step==='execute'?'active':aiActivity.progress>=100?'done':''}>2. Evidence analysis</span><span className={aiActivity.progress>=100?'done':''}>3. Structured output</span><span className={aiActivity.progress>=100?'done':''}>4. Persist & trace</span></div>{aiActivity.provider && <div className=\"efcAiMeta\"><b>Provider</b> {aiActivity.provider} <b>Model</b> {aiActivity.model || 'n/a'} <b>Latency</b> {aiActivity.duration_ms ? `${aiActivity.duration_ms} ms` : '—'} <b>Tokens</b> {(aiActivity.prompt_tokens||0)+(aiActivity.completion_tokens||0) || '—'}</div>}{aiActivity.summary && <p className=\"efcAiSummary\">{aiActivity.summary}</p>}{aiActivity.tool_calls?.length ? <div className=\"efcAiTools\"><b>Evidence/tools used</b>{aiActivity.tool_calls.map((c:any,i:number)=><span key={i}>{c.tool || c.name || 'tool'}</span>)}</div>:null}{aiActivity.warnings?.length ? <div className=\"efcAiWarning\">{aiActivity.warnings.join(' · ')}</div>:null}</section>}"""
+
+          new = """{project && aiActivity && <section className=\"efcAiActivity\">\n            <div className=\"efcAiActivityHead\"><div><span>LIVE AI EXECUTION INSPECTOR</span><h3>{stageLabel(aiActivity.stage)} · {aiActivity.status}</h3><small>{aiActivity.generation_mode==='ai' ? 'LLM-generated analysis' : 'Deterministic evidence-only fallback'}</small></div><span className=\"aiLiveBadge\"><i/> {aiActivity.progress ?? 0}%</span></div>\n            <div className=\"efcAiSteps\"><span className={aiActivity.step==='gate'?'active':'done'}>1. Gate & context</span><span className={aiActivity.step==='execute'?'active':aiActivity.progress>=100?'done':''}>2. Evidence analysis</span><span className={aiActivity.progress>=100?'done':''}>3. Structured output</span><span className={aiActivity.progress>=100?'done':''}>4. Persist & trace</span></div>\n            {aiActivity.generation_mode && <div className={`efcAiMode ${aiActivity.generation_mode==='ai'?'ai':'fallback'}`}><Bot size={14}/><b>{aiActivity.generation_mode==='ai' ? 'AI MODEL EXECUTED' : 'FALLBACK EXECUTED'}</b><span>{aiActivity.generation_mode==='ai' ? 'The configured LLM produced the stage analysis.' : 'The LLM was unavailable or failed; deterministic rules produced the result.'}</span></div>}\n            <div className=\"efcAiMeta\"><b>Provider</b> {aiActivity.provider || 'not reported'} <b>Model</b> {aiActivity.model || 'not reported'} <b>Latency</b> {aiActivity.duration_ms ? `${aiActivity.duration_ms} ms` : '—'} <b>Prompt</b> {aiActivity.prompt_tokens || 0} <b>Completion</b> {aiActivity.completion_tokens || 0}</div>\n            {aiActivity.summary && <div className=\"efcAiSummary\"><b>What the AI produced</b><p>{aiActivity.summary}</p></div>}\n            <div className=\"efcAiOutputGrid\"><div><b>Structured outputs</b><div>{(aiActivity.artifacts || []).length ? (aiActivity.artifacts || []).map((x:any)=><span key={String(x)}>{String(x)}</span>) : <em>Pending stage completion</em>}</div></div><div><b>Canonical statements</b><strong>{aiActivity.statement_count ?? 0}</strong></div><div><b>Tool / evidence calls</b><strong>{(aiActivity.tool_calls || []).length}</strong></div></div>\n            {aiActivity.tool_calls?.length ? <div className=\"efcAiTools\"><b>Evidence/tools used</b>{aiActivity.tool_calls.map((c:any,i:number)=><span key={i}>{c.tool || c.name || 'tool'}</span>)}</div>:null}\n            {aiActivity.warnings?.length ? <div className=\"efcAiWarning\">{aiActivity.warnings.join(' · ')}</div>:null}\n          </section>}"""
+
+          if old not in s:
+              raise SystemExit('Expected AI activity block not found; aborting without modification')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+
+      - name: Add inspector styles
+        shell: bash
+        run: |
+          cat >> frontend/app/enterprise-factory.css <<'CSS'
+
+          .efcAiMode{display:flex;align-items:center;gap:8px;margin:12px 0;padding:10px 12px;border:1px solid rgba(92,220,170,.28);border-radius:10px;background:rgba(92,220,170,.07);font-size:12px}
+          .efcAiMode.fallback{border-color:rgba(245,166,35,.35);background:rgba(245,166,35,.08)}
+          .efcAiMode span{opacity:.78}
+          .efcAiActivityHead small{display:block;margin-top:3px;opacity:.68}
+          .efcAiOutputGrid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-top:12px}
+          .efcAiOutputGrid>div{padding:11px 12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025)}
+          .efcAiOutputGrid b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;opacity:.68;margin-bottom:7px}
+          .efcAiOutputGrid strong{font-size:20px}
+          .efcAiOutputGrid em{font-size:12px;opacity:.55}
+          .efcAiOutputGrid span{display:inline-flex;margin:2px 4px 2px 0;padding:4px 7px;border-radius:6px;background:rgba(89,190,255,.10);font-size:11px}
+          @media(max-width:760px){.efcAiOutputGrid{grid-template-columns:1fr}.efcAiMeta{line-height:1.9}}
+          CSS
+
+      - name: Commit inspector
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/components/EnterpriseFactoryCockpit.tsx frontend/app/enterprise-factory.css
+          git diff --cached --quiet || git commit -m "Add visible AI execution inspector"
+          git push
+
+      - name: Remove temporary workflow
+        if: always()
+        run: |
+          git rm -f .github/workflows/build-ai-inspector.yml || true
+          git commit -m "Remove temporary AI inspector workflow" || true
+          git push || true
