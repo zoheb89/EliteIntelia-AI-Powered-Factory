@@ -92,7 +92,9 @@ export type Coverage = {
 export type Job = {
   id: string; kind: string; status: string; current_step: string;
   completed_steps: number; total_steps: number; message: string; error: string;
-  elapsed_seconds: number; trace: {timestamp: string; step: string; status: string; message: string}[];
+  elapsed_seconds: number;
+  results?: Record<string, {step: string; status: string; output?: any; error?: string; elapsed_ms?: number; attempts?: number}>;
+  trace: {timestamp: string; step: string; status: string; message: string}[];
 };
 export type PlatformOption = {
   option: string; platform: string; fit: number; relative: number; clouds: string[];
@@ -151,7 +153,7 @@ export const getProjectLifecycle = (id: string) =>
  * The previous client refreshed immediately after receiving QUEUED, which made
  * a running discovery look as if it had never started and hid job failures.
  */
-export async function runFactoryStage(id: string, stage: string, background = true) {
+export async function runFactoryStage(id: string, stage: string, background = true, onProgress?: (job: Job) => void) {
   const queued: any = await req<any>(
     `/projects/${encodeURIComponent(id)}/stages/${encodeURIComponent(stage)}`,
     {method: "POST", body: JSON.stringify({background})}
@@ -163,6 +165,7 @@ export async function runFactoryStage(id: string, stage: string, background = tr
   let last: Job | null = null;
   while (Date.now() < deadline) {
     last = await getFactoryJob(queued.job_id);
+    onProgress?.(last);
     if (["COMPLETED", "FAILED", "PARTIAL", "CANCELLED"].includes(last.status)) {
       if (last.status !== "COMPLETED") {
         const detail = last.error || last.message || `${stage} job ended with ${last.status}`;

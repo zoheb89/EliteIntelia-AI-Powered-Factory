@@ -197,11 +197,13 @@ class Orchestrator:
         def execute(_ctx):
             with repo_factory() as repo:
                 result = self.run_stage(repo, project_id, stage_id, enforce_gate=False)
-                return {"artifacts": result.artifacts,
-                        "statements": result.statements_persisted,
-                        "generation_mode": result.output.generation_mode,
-                        "summary": result.output.summary,
-                        "degraded": result.output.degraded}
+                return {"artifacts": result.artifacts, "statements": result.statements_persisted,
+                        "generation_mode": result.output.generation_mode, "summary": result.output.summary,
+                        "degraded": result.output.degraded, "provider": result.output.provider,
+                        "model": result.output.model, "prompt_tokens": result.output.prompt_tokens,
+                        "completion_tokens": result.output.completion_tokens, "duration_ms": result.output.duration_ms,
+                        "tool_calls": [c.to_dict() for c in result.output.tool_calls],
+                        "warnings": result.output.warnings}
 
         steps = [
             Step("gate", f"{stage.label} readiness check", gate, retries=1),

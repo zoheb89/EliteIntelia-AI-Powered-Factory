@@ -55,6 +55,7 @@ export function EnterpriseFactoryCockpit(){
   const [loading,setLoading]=useState(false);
   const [message,setMessage]=useState('');
   const [messageKind,setMessageKind]=useState<'info'|'success'|'error'>('info');
+  const [aiActivity,setAiActivity]=useState<any|null>(null);
   const [tab,setTab]=useState<'command'|'products'|'evidence'|'runs'>('command');
   const [showCreate,setShowCreate]=useState(false);
   const [customer,setCustomer]=useState('');
@@ -102,7 +103,10 @@ export function EnterpriseFactoryCockpit(){
     if(!project) return;
     setLoading(true); setMessage(`Starting ${stageLabel(stage)}…`); setMessageKind('info');
     try{
-      await runFactoryStage(project.id,stage,true);
+      await runFactoryStage(project.id,stage,true,job=>{
+        const exec=job?.results?.execute?.output || {};
+        setAiActivity({stage,status:job.status,step:job.current_step,progress:job.total_steps ? Math.round(job.completed_steps*100/job.total_steps) : 0,...exec});
+      });
       setMessageKind('success');
       setMessage(`${stageLabel(stage)} completed successfully. Control plane refreshed.`);
       await refresh(project);
@@ -150,6 +154,7 @@ export function EnterpriseFactoryCockpit(){
     </section>
 
     {message && <div className={`efcNotice ${messageKind}`}><CircleAlert size={16}/><span>{message}</span><button onClick={()=>setMessage('')}><X size={15}/></button></div>}
+    {project && aiActivity && <section className="efcAiActivity"><div className="efcAiActivityHead"><div><span>LIVE AI ACTIVITY</span><h3>{stageLabel(aiActivity.stage)} · {aiActivity.status}</h3></div><span className="aiLiveBadge"><i/> {aiActivity.progress ?? 0}%</span></div><div className="efcAiSteps"><span className={aiActivity.step==='gate'?'active':'done'}>1. Gate & context</span><span className={aiActivity.step==='execute'?'active':aiActivity.progress>=100?'done':''}>2. Evidence analysis</span><span className={aiActivity.progress>=100?'done':''}>3. Structured output</span><span className={aiActivity.progress>=100?'done':''}>4. Persist & trace</span></div>{aiActivity.provider && <div className="efcAiMeta"><b>Provider</b> {aiActivity.provider} <b>Model</b> {aiActivity.model || 'n/a'} <b>Latency</b> {aiActivity.duration_ms ? `${aiActivity.duration_ms} ms` : '—'} <b>Tokens</b> {(aiActivity.prompt_tokens||0)+(aiActivity.completion_tokens||0) || '—'}</div>}{aiActivity.summary && <p className="efcAiSummary">{aiActivity.summary}</p>}{aiActivity.tool_calls?.length ? <div className="efcAiTools"><b>Evidence/tools used</b>{aiActivity.tool_calls.map((c:any,i:number)=><span key={i}>{c.tool || c.name || 'tool'}</span>)}</div>:null}{aiActivity.warnings?.length ? <div className="efcAiWarning">{aiActivity.warnings.join(' · ')}</div>:null}</section>}
 
     {!project ? <section className="efcEmpty"><div><Rocket size={30}/><h2>Start the first governed engagement</h2><p>Create a customer engagement and the factory will derive the lifecycle, readiness gates, evidence lineage and next best action.</p><button className="efcPrimary" onClick={()=>setShowCreate(true)}><Plus size={17}/> Create engagement</button></div></section> : <>
       <section className="efcMetrics">

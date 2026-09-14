@@ -64,7 +64,8 @@ class StepResult:
         d = self.__dict__.copy()
         d["status"] = self.status.value
         # Outputs can be large; the job record keeps them, the trace does not.
-        d["output"] = None if self.output is None else "<stored>"
+        # Expose only the compact execution envelope; never expose prompts or secrets.
+        d["output"] = self.output
         return d
 
 
