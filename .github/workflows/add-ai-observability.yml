@@ -1,0 +1,65 @@
+name: Add AI observability
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch AI observability
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('backend/jobs/engine.py')
+          s = p.read_text()
+          old = '''        d["output"] = None if self.output is None else "<stored>"\n        return d'''
+          new = '''        # Job step outputs are intentionally limited to the compact execution\n        # envelope returned by the orchestrator. This makes live operator\n        # telemetry visible without exposing prompts, secrets or model internals.\n        d["output"] = self.output\n        return d'''
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+
+          p = Path('backend/agents_v2/orchestrator.py')
+          s = p.read_text()
+          old = '''                return {"artifacts": result.artifacts,\n                        "statements": result.statements_persisted,\n                        "generation_mode": result.output.generation_mode,\n                        "summary": result.output.summary,\n                        "degraded": result.output.degraded}'''
+          new = '''                return {"artifacts": result.artifacts,\n                        "statements": result.statements_persisted,\n                        "generation_mode": result.output.generation_mode,\n                        "summary": result.output.summary,\n                        "degraded": result.output.degraded,\n                        "provider": result.output.provider,\n                        "model": result.output.model,\n                        "prompt_tokens": result.output.prompt_tokens,\n                        "completion_tokens": result.output.completion_tokens,\n                        "duration_ms": result.output.duration_ms,\n                        "tool_calls": [c.to_dict() for c in result.output.tool_calls],\n                        "warnings": result.output.warnings}'''
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+
+          p = Path('frontend/lib/factory-api.ts')
+          s = p.read_text()
+          old = '''export type Job = {\n  id: string; kind: string; status: string; current_step: string;\n  completed_steps: number; total_steps: number; message: string; error: string;\n  elapsed_seconds: number; trace: {timestamp: string; step: string; status: string; message: string}[];\n};'''
+          new = '''export type Job = {\n  id: string; kind: string; status: string; current_step: string;\n  completed_steps: number; total_steps: number; message: string; error: string;\n  elapsed_seconds: number;\n  results?: Record<string, {step: string; status: string; output?: any; error?: string; elapsed_ms?: number; attempts?: number}>;\n  trace: {timestamp: string; step: string; status: string; message: string}[];\n};'''
+          assert old in s
+          p.write_text(s.replace(old, new, 1))
+
+          p = Path('frontend/components/EnterpriseFactoryCockpit.tsx')
+          s = p.read_text()
+          s = s.replace("  const [messageKind,setMessageKind]=useState<'info'|'success'|'error'>('info');", "  const [messageKind,setMessageKind]=useState<'info'|'success'|'error'>('info');\n  const [aiActivity,setAiActivity]=useState<any|null>(null);")
+          old = '''      await runFactoryStage(project.id,stage,true);\n      setMessageKind('success');'''
+          new = '''      await runFactoryStage(project.id,stage,true,job=>{\n        const exec=job?.results?.execute?.output || {};\n        setAiActivity({stage, status:job.status, step:job.current_step, progress:job.total_steps ? Math.round(job.completed_steps*100/job.total_steps) : 0, ...exec});\n      });\n      setMessageKind('success');'''
+          assert old in s
+          s = s.replace(old, new, 1)
+          old = '''  const engineMode=degradedCount ? `${degradedCount} stage${degradedCount===1?'':'s'} using deterministic fallback` : 'AI + deterministic engine ready';'''
+          new = '''  const engineMode=degradedCount ? `${degradedCount} stage${degradedCount===1?'':'s'} using deterministic fallback` : 'AI + deterministic engine ready';\n  const latestRun=aiActivity;'''
+          assert old in s
+          s = s.replace(old, new, 1)
+          old = '''    {message && <div className={`efcNotice ${messageKind}`}><CircleAlert size={16}/><span>{message}</span><button onClick={()=>setMessage('')}><X size={15}/></button></div>}'''
+          new = '''    {message && <div className={`efcNotice ${messageKind}`}><CircleAlert size={16}/><span>{message}</span><button onClick={()=>setMessage('')}><X size={15}/></button></div>}\n    {project && latestRun && <section className="efcAiActivity"><div className="efcAiActivityHead"><div><span>LIVE AI ACTIVITY</span><h3>{stageLabel(latestRun.stage)} · {latestRun.status}</h3></div><span className="aiLiveBadge"><i/> {latestRun.progress ?? 0}%</span></div><div className="efcAiSteps"><span className={latestRun.step==='gate'?'active':'done'}>1. Gate & context</span><span className={latestRun.step==='execute'?'active':latestRun.progress>=100?'done':''}>2. Evidence analysis</span><span className={latestRun.progress>=100?'done':''}>3. Structured output</span><span className={latestRun.progress>=100?'done':''}>4. Persist & trace</span></div>{latestRun.provider && <div className="efcAiMeta"><b>Provider</b> {latestRun.provider} <b>Model</b> {latestRun.model || 'n/a'} <b>Latency</b> {latestRun.duration_ms ? `${latestRun.duration_ms} ms` : '—'} <b>Tokens</b> {(latestRun.prompt_tokens||0)+(latestRun.completion_tokens||0) || '—'}</div>}{latestRun.summary && <p className="efcAiSummary">{latestRun.summary}</p>}{latestRun.tool_calls?.length ? <div className="efcAiTools"><b>Evidence/tools used</b>{latestRun.tool_calls.map((c:any,i:number)=><span key={i}>{c.tool || c.name || 'tool'}</span>)}</div>:null}{latestRun.warnings?.length ? <div className="efcAiWarning">{latestRun.warnings.join(' · ')}</div>:null}</section>}'''
+          assert old in s
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+      - name: Commit observability patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/jobs/engine.py backend/agents_v2/orchestrator.py frontend/lib/factory-api.ts frontend/components/EnterpriseFactoryCockpit.tsx
+          git commit -m "Add live AI execution observability"
+          git push
+          git rm .github/workflows/add-ai-observability.yml
+          git commit -m "Remove temporary observability workflow"
+          git push
