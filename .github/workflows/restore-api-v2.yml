@@ -1,22 +1,52 @@
-name: Restore API v2
+name: Apply lifecycle fixes
 on:
   push:
     branches: [main]
 permissions:
   contents: write
 jobs:
-  restore:
-    if: github.event.head_commit.message == 'Restore complete API v2'
+  fix:
+    if: github.event.head_commit.message == 'Apply lifecycle fixes'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Restore API v2 from known-good commit
+      - name: Patch lifecycle API and decision metrics
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('backend/core/api_v2.py')
+          s = p.read_text()
+
+          old = '''    unknowns = [s for s in items if s.provenance == Provenance.UNKNOWN.value]\n    return {"items": [{"id": s.id, "text": s.text, "stage": s.stage} for s in unknowns],\n            "count": len(unknowns)}\n'''
+          new = '''    unique = {}\n    for s in items:\n        if s.provenance != Provenance.UNKNOWN.value:\n            continue\n        key = " ".join((s.text or "").split()).casefold()\n        if key and key not in unique:\n            unique[key] = s\n    unknowns = list(unique.values())\n    return {"items": [{"id": s.id, "text": s.text, "stage": s.stage} for s in unknowns],\n            "count": len(unknowns)}\n'''
+          if old not in s: raise SystemExit('unknowns block not found')
+          s = s.replace(old, new, 1)
+
+          old = '''    stage = STAGE_BY_ID[stage_id]\n    if stage.agent not in AGENTS:\n        raise HTTPException(501, detail={\n            "code": "AGENT_NOT_IMPLEMENTED",\n            "message": f"No agent is implemented for stage '{stage_id}' yet.",\n            "agent": stage.agent})\n'''
+          new = '''    # Intent and evidence are captured-data lifecycle nodes, not agent stages.\n    # Never expose a misleading AGENT_NOT_IMPLEMENTED error for them.\n    if stage_id in DATA_SATISFIED:\n        st = _orchestrator.lifecycle_state(repo, project_id)\n        if not st.is_complete(stage_id):\n            raise HTTPException(409, detail={\n                "code": "DATA_STAGE_INCOMPLETE",\n                "message": f"Stage '{stage_id}' is satisfied by captured data; provide the required input first."})\n        return {"status": "COMPLETED", "stage": stage_id, "handler": "data",\n                "message": "Captured-data stage already satisfied; no agent execution required."}\n\n    stage = STAGE_BY_ID[stage_id]\n    if stage.id in ENGINE_STAGES:\n        raise HTTPException(409, detail={\n            "code": "ENGINE_STAGE",\n            "message": f"Stage '{stage_id}' is executed by its deterministic engine endpoint."})\n    if stage.agent not in AGENTS:\n        raise HTTPException(501, detail={\n            "code": "AGENT_NOT_IMPLEMENTED",\n            "message": f"No agent is implemented for stage '{stage_id}' yet.",\n            "agent": stage.agent})\n'''
+          if old not in s: raise SystemExit('run_stage block not found')
+          s = s.replace(old, new, 1)
+
+          old = '''    open_questions = sum(1 for s in repo.list_statements(project_id)\n                         if (s.provenance or "") == "UNKNOWN")\n'''
+          new = '''    open_questions = len({" ".join((s.text or "").split()).casefold()\n                          for s in repo.list_statements(project_id)\n                          if (s.provenance or "") == "UNKNOWN" and (s.text or "").strip()})\n'''
+          s = s.replace(old, new)
+          p.write_text(s)
+
+          n = Path('backend/core/next_action.py')
+          s = n.read_text()
+          old = '''def evidence_completeness(statements: List[Any]) -> Dict[str, Any]:\n    considered=[s for s in statements if getattr(s,"kind","") not in ("source",)]\n    if not considered:return {"percent":0,"evidenced":0,"open_questions":0,"total":0}\n    evidenced=sum(1 for s in considered if (getattr(s,"provenance","") or "") in EVIDENCED)\n    open_questions=sum(1 for s in considered if (getattr(s,"provenance","") or "") == "UNKNOWN")\n    return {"percent":round(100*evidenced/len(considered)),"evidenced":evidenced,"open_questions":open_questions,"total":len(considered)}\n'''
+          new = '''def evidence_completeness(statements: List[Any]) -> Dict[str, Any]:\n    # Re-running a stage must not inflate coverage or the customer decision queue.\n    unique = {}\n    for s in statements:\n        if getattr(s, "kind", "") in ("source",):\n            continue\n        key = (getattr(s, "kind", ""), " ".join((getattr(s, "text", "") or "").split()).casefold())\n        if key[1] and key not in unique:\n            unique[key] = s\n    considered = list(unique.values())\n    if not considered:return {"percent":0,"evidenced":0,"open_questions":0,"total":0}\n    evidenced=sum(1 for s in considered if (getattr(s,"provenance","") or "") in EVIDENCED)\n    open_questions=sum(1 for s in considered if (getattr(s,"provenance","") or "") == "UNKNOWN")\n    return {"percent":round(100*evidenced/len(considered)),"evidenced":evidenced,"open_questions":open_questions,"total":len(considered)}\n'''
+          if old not in s: raise SystemExit('evidence completeness block not found')
+          n.write_text(s.replace(old, new, 1))
+
+          w = Path('.github/workflows/restore-api-v2.yml')
+          w.unlink()
+      - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout 4cf75cda4445e51e5a8e9c5479be7c9069570e4d -- backend/core/api_v2.py
-          git add backend/core/api_v2.py
-          git commit -m "Restore API v2 from known-good version"
+          git add backend/core/api_v2.py backend/core/next_action.py .github/workflows/restore-api-v2.yml
+          git commit -m "Fix lifecycle stages and deduplicate decision metrics"
           git push
