@@ -1,0 +1,18 @@
+name: Restore API v2
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  restore:
+    if: github.sha == '9e20f1a5125ba698762f355bbf9c7af0897e0702'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Revert bad API commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git revert --no-edit 9e20f1a5125ba698762f355bbf9c7af0897e0702
+          git push
