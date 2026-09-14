@@ -26,7 +26,18 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   if (r.status === 401) throw new UnauthorizedError("Sign in to continue.");
   if (!r.ok) {
     const d = payload?.detail ?? payload;
-    throw new Error(typeof d === "string" ? d : d?.message || `Request failed (${r.status})`);
+    if (Array.isArray(d)) {
+      const issues = d.map((item: any) => {
+        const loc = Array.isArray(item?.loc) ? item.loc.filter(Boolean).join(" → ") : "request";
+        return `${loc}: ${item?.msg || item?.message || "validation failed"}`;
+      }).join("; ");
+      throw new Error(`Request validation failed (${r.status}): ${issues}`);
+    }
+    if (d && typeof d === "object") {
+      const code = d.code ? `[${d.code}] ` : "";
+      throw new Error(`${code}${d.message || d.detail || `Request failed (${r.status})`}`);
+    }
+    throw new Error(typeof d === "string" ? d : `Request failed (${r.status})`);
   }
   return payload as T;
 }
